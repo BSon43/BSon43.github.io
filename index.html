@@ -19,30 +19,36 @@
 
   <script>
     async function fetchDundam(name) {
+      // 1) CORS 프록시는 그대로 재사용
       const proxy     = 'https://api.codetabs.com/v1/proxy?quest=';
-      const targetUrl = `https://dundam.xyz/search?server=adven&name=${encodeURIComponent(name)}`;
-  
-      // ❶ 요청 상태 로그
-      const res = await fetch(proxy + encodeURIComponent(targetUrl));
+      // 2) searchData.jsp 엔드포인트로 바꿔줍니다
+      const apiUrl    = 
+        `https://dundam.xyz/dat/searchData.jsp`
+        + `?name=${encodeURIComponent(name)}`
+        + `&server=adven`;
+
+      // 3) JSON 데이터 요청
+      const res  = await fetch(proxy + encodeURIComponent(apiUrl));
       console.log('Fetch status:', res.status, res.statusText);
-  
-      // ❷ 응답 HTML 일부만 잘 받아오는지 로그
-      const html = await res.text();
-      console.log('HTML snippet:', html.slice(0,200));
-  
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const items = doc.querySelectorAll('div.sr-result > div.scon');
-      console.log('found items:', items.length, items);
-  
-      return Array.from(items).map(el => {
-        const nameEl = el.querySelector('div.seh_name > span.name');
-        const dmgEl  = el.querySelector('div.seh_stat > span.val');
-        return {
-          name:   nameEl?.innerText.trim() ?? '—',
-          damage: dmgEl?.innerText.trim()  ?? '—'
-        };
-      });
+
+      // 4) HTML 대신 JSON 파싱
+      const json = await res.json();
+      console.log('Raw JSON:', json);
+
+      // 5) JSON 구조 확인 후 매핑
+      //    👉 우선 console.log(json)로 필드 이름을 확인하세요!
+      // 예를 들어 json.data.list 같은 배열이 들어있다면:
+      const list = json.characters || [];
+
+      console.log('Parsed list:', list);
+
+      // 6) 원하는 키로 꺼내서 반환
+      return list.map(item => ({
+        name:   item.name           ?? '—',        // 예: "오래노턴"
+        damage: item.ozma           ?? '—'         // 예: "73470"
+      }));
     }
+
 
 
     document.getElementById('btn').onclick = async () => {
