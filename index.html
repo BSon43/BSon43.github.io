@@ -19,21 +19,25 @@
 
   <script>
     async function fetchDundam(name) {
-      // 1) CORS 프록시는 그대로 재사용
-      const proxy     = 'https://api.codetabs.com/v1/proxy?quest=';
-      // 2) searchData.jsp 엔드포인트로 바꿔줍니다
-      const apiUrl    = 
+      const proxy = 'https://thingproxy.freeboard.io/fetch/';
+      const apiUrl = 
         `https://dundam.xyz/dat/searchData.jsp`
         + `?name=${encodeURIComponent(name)}`
         + `&server=adven`;
 
-      // 3) JSON 데이터 요청
-      const res  = await fetch(proxy + encodeURIComponent(apiUrl));
+      const res = await fetch(proxy + apiUrl);
       console.log('Fetch status:', res.status, res.statusText);
 
-      // 4) HTML 대신 JSON 파싱
-      const json = await res.json();
-      console.log('Raw JSON:', json);
+      const text = await res.text();
+      console.log('Raw response text:', text.slice(0,200));
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        console.error('JSON parse failed:', e);
+        return [];
+      }
 
       // 5) JSON 구조 확인 후 매핑
       //    👉 우선 console.log(json)로 필드 이름을 확인하세요!
