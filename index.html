@@ -3,96 +3,69 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>캐릭터 명성 검색</title>
+  <title>모험단원 명성 검색</title>
   <style>
-    body {
-      font-family: sans-serif;
-      max-width: 480px;
-      margin: 2rem auto;
-      padding: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-    }
-    h1 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-    .search-area {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    .search-area input {
-      flex: 1;
-      padding: 0.5rem;
-      font-size: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .search-area button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      border: none;
-      background: #0077ff;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      padding: 0.75rem;
-      margin-bottom: 0.5rem;
-      background: #f9f9f9;
-      border-radius: 4px;
-    }
-    li strong {
-      display: inline-block;
-      width: 120px;
-    }
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+    .search { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .search input { flex: 1; padding: .5rem; font-size: 1rem; }
+    .search button { padding: .5rem 1rem; font-size: 1rem; }
+    ul { list-style: none; padding: 0; }
+    li { background: #f2f2f2; margin-bottom: .5rem; padding: .75rem; border-radius: 4px; }
+    strong { display: inline-block; width: 140px; }
   </style>
 </head>
 <body>
-  <h1>던전앤파이터 명성 검색</h1>
-  <div class="search-area">
-    <input id="q" type="text" placeholder="캐릭터명 입력" value="슈벨름" />
+  <h1>모험단원 명성 검색</h1>
+  <div class="search">
+    <input id="q" type="text" placeholder="모험단명 입력" value="슈벨름" />
     <button id="btn">검색</button>
   </div>
   <ul id="results"></ul>
 
   <script>
-    const API_KEY = 'YOUR_API_KEY';  // ← 발급받은 키로 교체
-    const SERVER  = 'adven';         // 모험단 서버
+    // ✏️ 여기에만 API 키를 넣으세요
+    const API_KEY = 'j3Uxqo3JwNLUNnMzn7v93bXgDpnDB7Ct';
+    const SERVER  = 'adven';  // 모험단 서버(ID)
 
-    async function fetchCharacterNameAndFame(name) {
-      // 1) 검색 API: 캐릭터 이름으로 ID 찾아오기
-      const searchUrl = 
-        `https://api.neople.co.kr/df/servers/${SERVER}/characters`
-        + `?characterName=${encodeURIComponent(name)}`
-        + `&limit=5`
+    async function fetchGuildMembers(name) {
+      // 1) 모험단 검색 → guildId 얻기
+      const searchUrl =
+        `https://api.neople.co.kr/df/servers/${SERVER}/guilds`
+        + `?guildName=${encodeURIComponent(name)}`
+        + `&wordType=match`   // 정확 일치 검색
+        + `&limit=1`          // 첫 번째 결과만
         + `&apikey=${API_KEY}`;
-      const res1 = await fetch(searchUrl);
-      const json1 = await res1.json();
-      const rows  = json1.rows || [];
-      console.log('search rows:', rows);
+      console.log('Guild search URL:', searchUrl);
 
-      // 2) ID별로 Status API를 호출해서 fame만 꺼내오기
-      const result = await Promise.all(rows.map(async row => {
-        const statusUrl = 
+      const res1  = await fetch(searchUrl);
+      const json1 = await res1.json();
+      const guild = (json1.rows || []).shift();
+      if (!guild) return [];
+
+      const guildId = guild.guildId;
+
+      // 2) 해당 모험단원 목록 가져오기
+      const membersUrl =
+        `https://api.neople.co.kr/df/servers/${SERVER}/guilds/`
+        + `${guildId}/members`
+        + `?apikey=${API_KEY}`;
+      console.log('Members URL:', membersUrl);
+
+      const res2    = await fetch(membersUrl);
+      const json2   = await res2.json();
+      const members = json2.members || json2.rows || [];
+      console.log('Members count:', members.length);
+
+      // 3) 각 모험단원별로 status API 호출 → fame 얻기
+      const result = await Promise.all(members.map(async m => {
+        const statusUrl =
           `https://api.neople.co.kr/df/servers/${SERVER}/characters/`
-          + `${row.characterId}/status`
+          + `${m.characterId}/status`
           + `?apikey=${API_KEY}`;
-        const res2 = await fetch(statusUrl);
-        const json2 = await res2.json();
-        // docs상 키 이름이 characterStatus 또는 result 일 수 있음
-        const status = json2.characterStatus || json2.result || {};
-        return {
-          name: row.characterName,
-          fame: status.fame ?? status.famePoint ?? '—'
-        };
+        const res3  = await fetch(statusUrl);
+        const json3 = await res3.json();
+        const fame  = json3.characterStatus?.fame ?? '—';
+        return { name: m.characterName, fame };
       }));
 
       return result;
@@ -104,14 +77,14 @@
       ul.innerHTML = '<li>로딩 중…</li>';
 
       try {
-        const list = await fetchCharacterNameAndFame(name);
+        const list = await fetchGuildMembers(name);
         if (list.length === 0) {
           ul.innerHTML = '<li>검색 결과가 없습니다.</li>';
-          return;
+        } else {
+          ul.innerHTML = list
+            .map(i => `<li><strong>${i.name}</strong> — 명성 ${i.fame}</li>`)
+            .join('');
         }
-        ul.innerHTML = list
-          .map(i => `<li><strong>${i.name}</strong> — 명성 ${i.fame}</li>`)
-          .join('');
       } catch (e) {
         console.error(e);
         ul.innerHTML = '<li>오류가 발생했습니다.</li>';
