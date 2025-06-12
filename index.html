@@ -25,6 +25,9 @@
         + `?name=${encodeURIComponent(name)}`
         + `&server=adven`;
 
+       // 여기에서 URL을 찍어 봅니다
+      console.log('Calling API URL:', apiUrl);
+
       const res = await fetch(proxy + apiUrl);
       console.log('Fetch status:', res.status, res.statusText);
 
