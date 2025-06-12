@@ -36,7 +36,7 @@
   
       return Array.from(items).map(el => {
         const nameEl = el.querySelector('div.seh_name > span.name');
-        const dmgEl  = el.querySelector('div.level > span.val');
+        const dmgEl  = el.querySelector('div.seh_stat > span.val');
         return {
           name:   nameEl?.innerText.trim() ?? '—',
           damage: dmgEl?.innerText.trim()  ?? '—'
