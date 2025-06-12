@@ -12,23 +12,23 @@
   </style>
 </head>
 <body>
-  <h1>“슈벨름” 모험단 검색 결과</h1>
+  <h1>모험단 검색 결과</h1>
   <input id="q" value="슈벨름"/>
   <button id="btn">검색</button>
   <ul id="results"></ul>
 
   <script>
     async function fetchDundam(name) {
-      const proxy = 'https://thingproxy.freeboard.io/fetch/';
-      const apiUrl = 
+      const proxy  = 'https://api.codetabs.com/v1/proxy?quest=';
+      const apiUrl =
         `https://dundam.xyz/dat/searchData.jsp`
         + `?name=${encodeURIComponent(name)}`
         + `&server=adven`;
 
-       // 여기에서 URL을 찍어 봅니다
-      console.log('Calling API URL:', apiUrl);
+      const fullUrl = proxy + encodeURIComponent(apiUrl);
+      console.log('Calling proxy URL:', fullUrl);
 
-      const res = await fetch(proxy + apiUrl);
+      const res = await fetch(fullUrl);
       console.log('Fetch status:', res.status, res.statusText);
 
       const text = await res.text();
@@ -42,39 +42,24 @@
         return [];
       }
 
-      // 5) JSON 구조 확인 후 매핑
-      //    👉 우선 console.log(json)로 필드 이름을 확인하세요!
-      // 예를 들어 json.data.list 같은 배열이 들어있다면:
       const list = json.characters || [];
-
       console.log('Parsed list:', list);
 
-      // 6) 원하는 키로 꺼내서 반환
       return list.map(item => ({
-        name:   item.name           ?? '—',        // 예: "오래노턴"
-        damage: item.ozma           ?? '—'         // 예: "73470"
+        name:   item.name         ?? '—',
+        damage: item.ozma ?? '—'
       }));
     }
 
-
-
     document.getElementById('btn').onclick = async () => {
       const name = document.getElementById('q').value;
-      const ul = document.getElementById('results');
+      const ul   = document.getElementById('results');
       ul.innerHTML = '<li>로딩 중…</li>';
-
       try {
         const data = await fetchDundam(name);
-        ul.innerHTML = '';
-        if (data.length === 0) {
-          ul.innerHTML = '<li>검색 결과가 없습니다.</li>';
-          return;
-        }
-        data.forEach(item => {
-          const li = document.createElement('li');
-          li.innerHTML = `<strong>${item.name}</strong> — ${item.damage}`;
-          ul.appendChild(li);
-        });
+        ul.innerHTML = data.length
+          ? data.map(i => `<li><strong>${i.name}</strong> — ${i.damage}</li>`).join('')
+          : '<li>검색 결과가 없습니다.</li>';
       } catch (err) {
         console.error(err);
         ul.innerHTML = '<li>오류가 발생했습니다.</li>';
