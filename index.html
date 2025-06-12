@@ -3,65 +3,117 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>던담 모험단 검색</title>
+  <title>캐릭터 명성 검색</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    input, button { padding: .5rem; font-size: 1rem; }
-    ul { list-style: none; padding: 0; }
-    li { margin: .5rem 0; background: #f7f7f7; padding: .75rem; border-radius: 4px; }
+    body {
+      font-family: sans-serif;
+      max-width: 480px;
+      margin: 2rem auto;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .search-area {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .search-area input {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .search-area button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #0077ff;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+    li strong {
+      display: inline-block;
+      width: 120px;
+    }
   </style>
 </head>
 <body>
-  <h1>모험단 검색 결과</h1>
-  <input id="q" value="슈벨름"/>
-  <button id="btn">검색</button>
+  <h1>던전앤파이터 명성 검색</h1>
+  <div class="search-area">
+    <input id="q" type="text" placeholder="캐릭터명 입력" value="슈벨름" />
+    <button id="btn">검색</button>
+  </div>
   <ul id="results"></ul>
 
   <script>
-    async function fetchDundam(name) {
-      const proxy  = 'https://api.codetabs.com/v1/proxy?quest=';
-      const apiUrl =
-        `https://dundam.xyz/dat/searchData.jsp`
-        + `?name=${encodeURIComponent(name)}`
-        + `&server=adven`;
+    const API_KEY = 'YOUR_API_KEY';  // ← 발급받은 키로 교체
+    const SERVER  = 'adven';         // 모험단 서버
 
-      const fullUrl = proxy + encodeURIComponent(apiUrl);
-      console.log('Calling proxy URL:', fullUrl);
+    async function fetchCharacterNameAndFame(name) {
+      // 1) 검색 API: 캐릭터 이름으로 ID 찾아오기
+      const searchUrl = 
+        `https://api.neople.co.kr/df/servers/${SERVER}/characters`
+        + `?characterName=${encodeURIComponent(name)}`
+        + `&limit=5`
+        + `&apikey=${API_KEY}`;
+      const res1 = await fetch(searchUrl);
+      const json1 = await res1.json();
+      const rows  = json1.rows || [];
+      console.log('search rows:', rows);
 
-      const res = await fetch(fullUrl);
-      console.log('Fetch status:', res.status, res.statusText);
-
-      const text = await res.text();
-      console.log('Raw response text:', text.slice(0,200));
-
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        console.error('JSON parse failed:', e);
-        return [];
-      }
-
-      const list = json.characters || [];
-      console.log('Parsed list:', list);
-
-      return list.map(item => ({
-        name:   item.name         ?? '—',
-        damage: item.ozma ?? '—'
+      // 2) ID별로 Status API를 호출해서 fame만 꺼내오기
+      const result = await Promise.all(rows.map(async row => {
+        const statusUrl = 
+          `https://api.neople.co.kr/df/servers/${SERVER}/characters/`
+          + `${row.characterId}/status`
+          + `?apikey=${API_KEY}`;
+        const res2 = await fetch(statusUrl);
+        const json2 = await res2.json();
+        // docs상 키 이름이 characterStatus 또는 result 일 수 있음
+        const status = json2.characterStatus || json2.result || {};
+        return {
+          name: row.characterName,
+          fame: status.fame ?? status.famePoint ?? '—'
+        };
       }));
+
+      return result;
     }
 
     document.getElementById('btn').onclick = async () => {
-      const name = document.getElementById('q').value;
+      const name = document.getElementById('q').value.trim();
       const ul   = document.getElementById('results');
       ul.innerHTML = '<li>로딩 중…</li>';
+
       try {
-        const data = await fetchDundam(name);
-        ul.innerHTML = data.length
-          ? data.map(i => `<li><strong>${i.name}</strong> — ${i.damage}</li>`).join('')
-          : '<li>검색 결과가 없습니다.</li>';
-      } catch (err) {
-        console.error(err);
+        const list = await fetchCharacterNameAndFame(name);
+        if (list.length === 0) {
+          ul.innerHTML = '<li>검색 결과가 없습니다.</li>';
+          return;
+        }
+        ul.innerHTML = list
+          .map(i => `<li><strong>${i.name}</strong> — 명성 ${i.fame}</li>`)
+          .join('');
+      } catch (e) {
+        console.error(e);
         ul.innerHTML = '<li>오류가 발생했습니다.</li>';
       }
     };
