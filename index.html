@@ -3,130 +3,257 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>모험단 서버별 캐릭터 검색 (이미지 포함)</title>
+  <title>캐릭터 검색 & 장비 조회</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+    body { font-family: sans-serif; max-width: 960px; margin: 2rem auto; }
     h1 { text-align: center; margin-bottom: 1rem; }
+
     .search { display: flex; gap: .5rem; margin-bottom: 1rem; }
     select, input { flex: 1; padding: .5rem; font-size: 1rem; }
     button { padding: .5rem 1rem; font-size: 1rem; }
-    ul { 
-      list-style: none; 
-      padding: 0; 
-      display: flex; 
-      flex-wrap: wrap; 
-      gap: 1rem;
+
+    #results, #detail { }
+    #results ul, #detail { margin:0; padding:0; }
+    #results li {
+      list-style: none;
+      width: 240px;
+      text-align: center;
+      background: #f2f2f2;
+      margin: .5rem;
+      padding: .5rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #results {
+      display: flex;
+      flex-wrap: wrap;
       justify-content: center;
     }
-    li { 
-      width: 100px; 
-      text-align: center; 
-      background: #f2f2f2; 
-      padding: .5rem; 
-      border-radius: 6px; 
-    }
-    li img {
-      width: 80px; 
-      height: 80px; 
-      object-fit: cover; 
+    #results img {
+      width: 240px;
+      height: 240px;
+      object-fit: cover;
       border-radius: 4px;
       margin-bottom: .5rem;
     }
-    li div.name {
-      font-weight: bold;
-      font-size: 0.9rem;
-      word-break: break-all;
+
+    #detail { display: none; }
+    #detail .top {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    #detail img {
+      width: 320px;
+      height: 320px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    #detail .info {
+      flex: 1;
+    }
+    #detail .info h2 {
+      margin-top: 0;
+    }
+    #detail table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    #detail th, #detail td {
+      border: 1px solid #ccc;
+      padding: .5rem;
+      text-align: left;
+    }
+    #detail th {
+      background: #eee;
+    }
+    #backBtn {
+      margin-top: 1rem;
     }
   </style>
 </head>
 <body>
-  <h1>모험단 서버별 캐릭터 검색</h1>
+  <h1>모험단 서버별 캐릭터 검색 & 장비 조회</h1>
   <div class="search">
     <select id="serverSelect">
-      <option>불러오는 중…</option>
+      <option value="all">전체</option>
     </select>
     <input id="q" type="text" placeholder="캐릭터명 입력" value="슈벨름"/>
     <button id="btn">검색</button>
   </div>
-  <ul id="results"></ul>
+
+  <!-- 검색 결과 그리드 -->
+  <div id="results"><ul></ul></div>
+
+  <!-- 상세 보기 영역 -->
+  <div id="detail">
+    <button id="backBtn">← 목록으로 돌아가기</button>
+    <div class="top">
+      <img id="detailImg" src="" alt="캐릭터 이미지"/>
+      <div class="info">
+        <h2 id="detailName"></h2>
+        <p id="detailJob"></p>
+        <p id="detailLevel"></p>
+        <p id="detailFame"></p>
+      </div>
+    </div>
+    <h3>장착 장비</h3>
+    <table id="equipTable">
+      <thead>
+        <tr>
+          <th>슬롯</th><th>이름</th><th>강화</th><th>인챈트</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
-    const API_KEY = 'j3Uxqo3JwNLUNnMzn7v93bXgDpnDB7Ct';  
+    const API_KEY = 'j3Uxqo3JwNLUNnMzn7v93bXgDpnDB7Ct';
     const PROXY   = 'https://api.allorigins.win/raw?url=';
 
-    const serverSelect = document.getElementById('serverSelect');
-    const input        = document.getElementById('q');
-    const btn          = document.getElementById('btn');
-    const resultsEl    = document.getElementById('results');
+    const serversel = document.getElementById('serverSelect');
+    const input     = document.getElementById('q');
+    const btn       = document.getElementById('btn');
+    const results   = document.querySelector('#results ul');
+    const detail    = document.getElementById('detail');
+    const backBtn   = document.getElementById('backBtn');
+
+    // 상세 요소
+    const detailImg   = document.getElementById('detailImg');
+    const detailName  = document.getElementById('detailName');
+    const detailJob   = document.getElementById('detailJob');
+    const detailLevel = document.getElementById('detailLevel');
+    const detailFame  = document.getElementById('detailFame');
+    const equipTbody  = document.querySelector('#equipTable tbody');
 
     // 1) 서버 목록 불러오기
     async function loadServers() {
-      const apiUrl   = `https://api.neople.co.kr/df/servers?apikey=${API_KEY}`;
-      const fetchUrl = PROXY + encodeURIComponent(apiUrl);
+      const url     = `https://api.neople.co.kr/df/servers?apikey=${API_KEY}`;
+      const proxyUrl= PROXY + encodeURIComponent(url);
       try {
-        const res  = await fetch(fetchUrl);
+        const res  = await fetch(proxyUrl);
         const json = await res.json();
         const rows = json.rows || [];
-        serverSelect.innerHTML = rows
-          .map(r => `<option value="${r.serverId}">${r.serverName}</option>`)
-          .join('');
-      } catch (e) {
-        console.error('서버 목록 로드 실패', e);
-        serverSelect.innerHTML = '<option>로드 실패</option>';
+        // '전체' 이미 넣어뒀으므로 뒤에 붙임
+        serversel.innerHTML = 
+          `<option value="all">전체</option>` +
+          rows.map(r => `<option value="${r.serverId}">${r.serverName}</option>`).join('');
+      } catch(e) {
+        console.error('서버 로드 오류', e);
       }
     }
 
-    // 2) 선택된 서버 + 캐릭터명으로 검색 & 렌더링
+    // 2) 캐릭터 검색
     async function searchCharacters() {
-      const server = serverSelect.value;
+      const server = serversel.value;
       const name   = input.value.trim();
-      if (!name) {
-        alert('캐릭터명을 입력하세요.');
-        return;
-      }
+      if (!name) return alert('캐릭터명을 입력하세요.');
+      results.innerHTML = `<li>검색 중…</li>`;
 
-      resultsEl.innerHTML = '<li>검색 중…</li>';
-
-      // characters API 호출
-      const apiUrl =
+      const url = 
         `https://api.neople.co.kr/df/servers/${server}/characters`
         + `?characterName=${encodeURIComponent(name)}`
-        + `&wordType=match`
-        + `&limit=10`
-        + `&apikey=${API_KEY}`;
-      const fetchUrl = PROXY + encodeURIComponent(apiUrl);
+        + `&wordType=match&limit=10&apikey=${API_KEY}`;
+      const proxy = PROXY + encodeURIComponent(url);
 
       try {
-        const res  = await fetch(fetchUrl);
-        const json = await res.json();
-        const rows = json.rows || [];
-
-        if (rows.length === 0) {
-          resultsEl.innerHTML = '<li>검색 결과가 없습니다.</li>';
+        const res = await fetch(proxy);
+        const json= await res.json();
+        const rows= json.rows||[];
+        if (!rows.length) {
+          results.innerHTML = `<li>검색 결과가 없습니다.</li>`;
           return;
         }
-
-        // 결과를 이미지 + 이름 형태로 렌더링
-        resultsEl.innerHTML = rows.map(r => {
-          // 이미지 URL: characterId 사용
+        // 그리드로 출력
+        results.innerHTML = rows.map(r => {
           const imgUrl =
             `https://img-api.neople.co.kr/df/servers/${server}`
             + `/characters/${r.characterId}?zoom=1`;
-
           return `
-            <li>
-              <img src="${imgUrl}" alt="${r.characterName}" 
-                   onerror="this.src='https://via.placeholder.com/80?text=No+Image'"/>
-              <div class="name">${r.characterName}</div>
+            <li data-id="${r.characterId}" data-server="${server}"
+                data-name="${r.characterName}"
+                data-job="${r.jobGrowName}"
+                data-level="${r.level}"
+                data-fame="${r.fame}">
+              <img src="${imgUrl}"
+                   onerror="this.src='https://via.placeholder.com/240?text=No+Image'">
+              <div>${r.characterName}</div>
             </li>`;
         }).join('');
-      } catch (e) {
-        console.error('검색 실패', e);
-        resultsEl.innerHTML = '<li>검색 중 오류가 발생했습니다.</li>';
+
+        // 클릭 이벤트 연결
+        document.querySelectorAll('#results li').forEach(li=>{
+          li.addEventListener('click', () => showDetail(li));
+        });
+      } catch(e) {
+        console.error('검색 오류', e);
+        results.innerHTML = `<li>오류가 발생했습니다.</li>`;
       }
     }
 
-    // 초기 로드
+    // 3) 상세 보기
+    async function showDetail(li) {
+      // 리스트 숨기고 상세 보이기
+      document.querySelector('.search').style.display = 'none';
+      document.getElementById('results').style.display = 'none';
+      detail.style.display = 'block';
+
+      const server      = li.dataset.server;
+      const charId      = li.dataset.id;
+      const charName    = li.dataset.name;
+      const job         = li.dataset.job;
+      const level       = li.dataset.level;
+      const fame        = li.dataset.fame;
+      // 이미지
+      detailImg.src     =
+        `https://img-api.neople.co.kr/df/servers/${server}`
+        + `/characters/${charId}?zoom=2`;
+      detailName.textContent  = charName;
+      detailJob.textContent   = `전직: ${job}`;
+      detailLevel.textContent = `레벨: ${level}`;
+      detailFame.textContent  = `명성: ${fame}`;
+
+      // 장비 조회
+      const equipUrl =
+        `https://api.neople.co.kr/df/servers/${server}`
+        + `/characters/${charId}/equip/equipment?apikey=${API_KEY}`;
+      const proxy = PROXY + encodeURIComponent(equipUrl);
+
+      try {
+        const res    = await fetch(proxy);
+        const json   = await res.json();
+        const equip  = json.equipment || [];
+        // 테이블 채우기
+        equipTbody.innerHTML = equip.map(it => {
+          // 인챈트 상태들 합치기
+          const ench  = (it.enchant?.status||[])
+                         .map(s=>`${s.name} ${s.value}`)
+                         .join(', ');
+          return `
+            <tr>
+              <td>${it.slotName}</td>
+              <td>${it.itemName}</td>
+              <td>+${it.reinforce}</td>
+              <td>${ench}</td>
+            </tr>`;
+        }).join('');
+      } catch(e) {
+        console.error('장비 조회 오류', e);
+        equipTbody.innerHTML = `<tr><td colspan="4">장비를 불러올 수 없습니다.</td></tr>`;
+      }
+    }
+
+    // 뒤로 가기
+    backBtn.addEventListener('click', () => {
+      detail.style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+      document.querySelector('.search').style.display = 'flex';
+    });
+
+    // 초기화
     loadServers();
     btn.addEventListener('click', searchCharacters);
   </script>
