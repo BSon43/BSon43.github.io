@@ -28,7 +28,7 @@
       loadingEl.style.display = 'block';
       listEl.innerHTML = '';
       try {
-        const res = await fetch('https://jsonplaceholder.typicode.com/posts');
+        const res = await fetch('https://api.openweathermap.org/data/2.5/weather?q=Seoul&appid=YOUR_API_KEY');
         const data = await res.json();
         data.slice(0, 10).forEach(item => {
           const li = document.createElement('li');
