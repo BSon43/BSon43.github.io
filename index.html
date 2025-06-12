@@ -21,21 +21,22 @@
     async function fetchDundam(name) {
       const proxy     = 'https://api.allorigins.win/raw?url=';
       const targetUrl = `https://dundam.xyz/search?server=adven&name=${encodeURIComponent(name)}`;
-      const res       = await fetch(proxy + encodeURIComponent(targetUrl));
-      const html      = await res.text();
-      const doc       = new DOMParser().parseFromString(html, 'text/html');
-
-      // 1) 각 결과 항목 컨테이너만 CSS 셀렉터로 지정
+  
+      // ❶ 요청 상태 로그
+      const res = await fetch(proxy + encodeURIComponent(targetUrl));
+      console.log('Fetch status:', res.status, res.statusText);
+  
+      // ❷ 응답 HTML 일부만 잘 받아오는지 로그
+      const html = await res.text();
+      console.log('HTML snippet:', html.slice(0,200));
+  
+      const doc = new DOMParser().parseFromString(html, 'text/html');
       const items = doc.querySelectorAll('div.sr-result');
       console.log('found items:', items.length, items);
-
+  
       return Array.from(items).map(el => {
-        // 2) 각 el(결과 항목) 내부에서
-        // 캐릭터 이름: div.seh_name > span.name
-        const nameEl   = el.querySelector('div.seh_name span.name');
-        // 데미지 리포트(여기서는 level 레이블의 숫자): div.level > span.val
-        const dmgEl    = el.querySelector('div.level span.val');
-
+        const nameEl = el.querySelector('div.seh_name > span.name');
+        const dmgEl  = el.querySelector('div.level > span.val');
         return {
           name:   nameEl?.innerText.trim() ?? '—',
           damage: dmgEl?.innerText.trim()  ?? '—'
