@@ -31,7 +31,7 @@
       console.log('HTML snippet:', html.slice(0,200));
   
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      const items = doc.querySelectorAll('div.sr-result');
+      const items = doc.querySelectorAll('div.sr-result > div.scon');
       console.log('found items:', items.length, items);
   
       return Array.from(items).map(el => {
